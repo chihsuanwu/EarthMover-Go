@@ -51,7 +51,7 @@ func TestFreestyleBoardGetHSI(t *testing.T) {
 
 func TestFreestyleBoardPlayUndoRoundtrip(t *testing.T) {
 	b := NewBoard()
-	gb := b.(*gomoku.GomokuBoard)
+	gb := b.(*gomoku.GomokuBoard[FreestyleEvaluator])
 
 	// Record initial state
 	center := 7*board.Dimen + 7
@@ -117,7 +117,7 @@ func TestFreestyleBoardClone(t *testing.T) {
 
 	// Mutating clone shouldn't affect original
 	clone.Play(113)
-	gb := b.(*gomoku.GomokuBoard)
+	gb := b.(*gomoku.GomokuBoard[FreestyleEvaluator])
 	if gb.Points[113].Stat != board.Empty {
 		t.Error("original changed after clone mutation")
 	}

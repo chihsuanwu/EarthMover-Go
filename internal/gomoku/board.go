@@ -8,30 +8,31 @@ import (
 	"github.com/todd/earthmover/internal/opening"
 )
 
-// boardPool reuses GomokuBoard allocations to reduce GC pressure during MCTS.
-var boardPool = sync.Pool{
-	New: func() any { return &GomokuBoard{} },
-}
-
 // Directions: 0=→ 1=↓ 2=↗ 3=↘
 var dir = [4][2]int{{0, 1}, {1, 0}, {-1, 1}, {1, 1}}
 
 // GomokuBoard implements the board.Board interface for Gomoku.
-type GomokuBoard struct {
+// E is the concrete evaluator type, enabling the compiler to inline
+// EvaluateType/EvaluateScore calls instead of going through interface dispatch.
+type GomokuBoard[E Evaluator] struct {
 	Points    [board.Length]Point
 	PlayNo    int
 	StatusLen int // 8 for freestyle, 10 for renju
-	Eval      Evaluator
+	Eval      E
 
-	// statusBuf is a reusable buffer for getDirStatus to avoid per-call allocation.
+	// statusBuf is a reusable buffer for fillDirStatus to avoid per-call allocation.
 	statusBuf [MaxStatusLength]board.StoneStatus
+
+	// pool is shared among all clones of the same board type for reuse.
+	pool *sync.Pool
 }
 
 // NewBoard creates and initializes a new GomokuBoard with the given evaluator and status length.
-func NewBoard(eval Evaluator, statusLen int) *GomokuBoard {
-	b := &GomokuBoard{
+func NewBoard[E Evaluator](eval E, statusLen int, pool *sync.Pool) *GomokuBoard[E] {
+	b := &GomokuBoard[E]{
 		StatusLen: statusLen,
 		Eval:      eval,
+		pool:      pool,
 	}
 	eval.Init()
 	b.initNeighbors()
@@ -39,7 +40,7 @@ func NewBoard(eval Evaluator, statusLen int) *GomokuBoard {
 	return b
 }
 
-func (b *GomokuBoard) initNeighbors() {
+func (b *GomokuBoard[E]) initNeighbors() {
 	// Initialize all points to Empty (zero-value is Black=0, not Empty=2)
 	for i := 0; i < board.Length; i++ {
 		b.Points[i].Stat = board.Empty
@@ -71,7 +72,7 @@ func (b *GomokuBoard) initNeighbors() {
 	}
 }
 
-func (b *GomokuBoard) initScores() {
+func (b *GomokuBoard[E]) initScores() {
 	for i := 0; i < board.Length; i++ {
 		for d := 0; d < 4; d++ {
 			b.fillDirStatus(i, d)
@@ -83,7 +84,7 @@ func (b *GomokuBoard) initScores() {
 }
 
 // fillDirStatus reads the neighbor stone statuses along a direction into b.statusBuf.
-func (b *GomokuBoard) fillDirStatus(pointIdx, dir int) {
+func (b *GomokuBoard[E]) fillDirStatus(pointIdx, dir int) {
 	for i := 0; i < b.StatusLen; i++ {
 		idx := b.Points[pointIdx].DirIdx[dir][i]
 		if idx < 0 {
@@ -94,7 +95,7 @@ func (b *GomokuBoard) fillDirStatus(pointIdx, dir int) {
 	}
 }
 
-func (b *GomokuBoard) evaluateRelativeScore() {
+func (b *GomokuBoard[E]) evaluateRelativeScore() {
 	EvaluateRelativeScore(&b.Points, b.PlayNo, openingClassifyPoints)
 }
 
@@ -109,7 +110,7 @@ func openingClassifyPoints(points *[board.Length]Point) int {
 
 // --- board.Board interface implementation ---
 
-func (b *GomokuBoard) Play(index int) board.GameStatus {
+func (b *GomokuBoard[E]) Play(index int) board.GameStatus {
 	whoTurn := b.PlayNo & 1
 	status := b.Eval.CheckWinOrLose(b.Points[index].AbsScore[whoTurn])
 	if status != board.Nothing {
@@ -132,7 +133,7 @@ func (b *GomokuBoard) Play(index int) board.GameStatus {
 	return board.Nothing
 }
 
-func (b *GomokuBoard) Undo(index int) {
+func (b *GomokuBoard[E]) Undo(index int) {
 	b.PlayNo--
 
 	// index == 225 means previous move was a pass
@@ -156,7 +157,7 @@ func (b *GomokuBoard) Undo(index int) {
 
 // updateNeighbors re-evaluates types and scores for neighboring empty points
 // affected by a stone placement or removal at the given index.
-func (b *GomokuBoard) updateNeighbors(index int) {
+func (b *GomokuBoard[E]) updateNeighbors(index int) {
 	row := index / board.Dimen
 	col := index % board.Dimen
 	halfLen := b.StatusLen / 2
@@ -192,16 +193,16 @@ func (b *GomokuBoard) updateNeighbors(index int) {
 	}
 }
 
-func (b *GomokuBoard) Pass() int {
+func (b *GomokuBoard[E]) Pass() int {
 	b.PlayNo++
 	return board.Length // 225
 }
 
-func (b *GomokuBoard) GetScore(index int) int {
+func (b *GomokuBoard[E]) GetScore(index int) int {
 	return b.Points[index].Scr
 }
 
-func (b *GomokuBoard) GetScoreSum() int {
+func (b *GomokuBoard[E]) GetScoreSum() int {
 	sum := 0
 	for i := 0; i < board.Length; i++ {
 		if s := b.Points[i].Scr; s > 0 {
@@ -211,7 +212,7 @@ func (b *GomokuBoard) GetScoreSum() int {
 	return sum
 }
 
-func (b *GomokuBoard) GetHSI() int {
+func (b *GomokuBoard[E]) GetHSI() int {
 	max := 0
 	same := 0
 	index := -1
@@ -236,7 +237,7 @@ func (b *GomokuBoard) GetHSI() int {
 	return index
 }
 
-func (b *GomokuBoard) GetHSIFiltered(ignore []bool) int {
+func (b *GomokuBoard[E]) GetHSIFiltered(ignore []bool) int {
 	max := 0
 	index := -1
 
@@ -252,31 +253,38 @@ func (b *GomokuBoard) GetHSIFiltered(ignore []bool) int {
 	return index
 }
 
-func (b *GomokuBoard) WhoTurn() bool {
+func (b *GomokuBoard[E]) WhoTurn() bool {
 	return b.PlayNo&1 == 1
 }
 
-func (b *GomokuBoard) Length() int {
+func (b *GomokuBoard[E]) Length() int {
 	return board.Length
 }
 
-func (b *GomokuBoard) Clone() board.Board {
-	clone := boardPool.Get().(*GomokuBoard)
+func (b *GomokuBoard[E]) Clone() board.Board {
+	clone := b.pool.Get().(*GomokuBoard[E])
 	clone.PlayNo = b.PlayNo
 	clone.StatusLen = b.StatusLen
 	clone.Eval = b.Eval
 	clone.Points = b.Points
+	clone.pool = b.pool
 	return clone
 }
 
-// Release returns a cloned board to the pool for reuse.
-// Call this when a cloned board is no longer needed (e.g., after MCTS simulation).
+// Release returns a cloned board to its pool for reuse.
 func Release(b board.Board) {
-	if gb, ok := b.(*GomokuBoard); ok {
-		boardPool.Put(gb)
+	type poolable interface {
+		release()
+	}
+	if p, ok := b.(poolable); ok {
+		p.release()
 	}
 }
 
-func (b *GomokuBoard) Create() board.Board {
-	return NewBoard(b.Eval, b.StatusLen)
+func (b *GomokuBoard[E]) release() {
+	b.pool.Put(b)
+}
+
+func (b *GomokuBoard[E]) Create() board.Board {
+	return NewBoard(b.Eval, b.StatusLen, b.pool)
 }

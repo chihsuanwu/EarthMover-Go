@@ -40,22 +40,22 @@ const (
 // FreestyleEvaluator implements gomoku.Evaluator for the freestyle rule.
 type FreestyleEvaluator struct{}
 
-func (e *FreestyleEvaluator) Init() {
+func (e FreestyleEvaluator) Init() {
 	InitTypeTree()
 }
 
-func (e *FreestyleEvaluator) EvaluateType(status []board.StoneStatus) gomoku.ChessType {
+func (e FreestyleEvaluator) EvaluateType(status []board.StoneStatus) gomoku.ChessType {
 	return ClassifyType(status)
 }
 
-func (e *FreestyleEvaluator) CheckWinOrLose(score int) board.GameStatus {
+func (e FreestyleEvaluator) CheckWinOrLose(score int) board.GameStatus {
 	if score >= gomoku.ScoreWin {
 		return board.Winning
 	}
 	return board.Nothing
 }
 
-func (e *FreestyleEvaluator) EvaluateScore(types [4]gomoku.ChessType, score *[2]int) {
+func (e FreestyleEvaluator) EvaluateScore(types [4]gomoku.ChessType, score *[2]int) {
 	const (
 		attack  = 0
 		defense = 1

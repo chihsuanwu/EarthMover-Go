@@ -40,15 +40,15 @@ const (
 // RenjuEvaluator implements gomoku.Evaluator for the renju-basic rule.
 type RenjuEvaluator struct{}
 
-func (e *RenjuEvaluator) Init() {
+func (e RenjuEvaluator) Init() {
 	InitTypeTree()
 }
 
-func (e *RenjuEvaluator) EvaluateType(status []board.StoneStatus) gomoku.ChessType {
+func (e RenjuEvaluator) EvaluateType(status []board.StoneStatus) gomoku.ChessType {
 	return ClassifyType(status)
 }
 
-func (e *RenjuEvaluator) CheckWinOrLose(score int) board.GameStatus {
+func (e RenjuEvaluator) CheckWinOrLose(score int) board.GameStatus {
 	if score >= gomoku.ScoreWin {
 		return board.Winning
 	}
@@ -58,7 +58,7 @@ func (e *RenjuEvaluator) CheckWinOrLose(score int) board.GameStatus {
 	return board.Nothing
 }
 
-func (e *RenjuEvaluator) EvaluateScore(types [4]gomoku.ChessType, score *[2]int) {
+func (e RenjuEvaluator) EvaluateScore(types [4]gomoku.ChessType, score *[2]int) {
 	const (
 		attack  = 0
 		defense = 1
