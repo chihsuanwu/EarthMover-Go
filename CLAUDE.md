@@ -4,164 +4,114 @@ Gomoku (五子棋) AI engine, refactored from C++ to Go.
 
 Original project: `/Users/todd/EarthMover`
 
+## How to Run
+
+```bash
+# Terminal interactive mode
+go run ./cmd/cli/
+
+# HTTP server (open browser at http://localhost:8080)
+go run ./cmd/earthmover/ 8080
+
+# Run all tests
+go test ./...
+
+# Run tests with race detector
+go test -race ./...
+```
+
 ## Project Structure
 
 ```
-earthmover-go/
-  cmd/
-    earthmover/              # HTTP server entry point
-    cli/                     # Terminal interactive mode
-  internal/
-    board/
-      board.go               # Board interface + constants/enums
-    gomoku/
-      point.go               # Point struct
-      chesstype.go           # SingleType, ChessType
-      board.go               # GomokuBoard (play/undo/scoring)
-      evaluator.go           # Shared relative score logic
-    freestyle/
-      evaluator.go           # Freestyle scoring table + combo bonuses
-      typetree.go            # Freestyle pattern recognition tree
-    renju/
-      evaluator.go           # Renju scoring + forbidden move detection
-      typetree.go            # Renju pattern recognition tree
-    opening/
-      openingtree.go         # Opening book (go:embed opening.txt)
-      opening.txt            # Opening data file (copied from C++)
-    mcts/
-      node.go                # Node struct, UCB, merge
-      tree.go                # MCTS main loop: selection/simulation/backprop
-    ai/
-      ai.go                  # AI controller (levels, thinking, background)
-    server/
-      server.go              # HTTP handlers, session management
-  static/                    # Frontend files (copied from C++ project as-is)
+cmd/
+  earthmover/main.go         # HTTP server entry point
+  cli/main.go                # Terminal interactive mode
+internal/
+  board/board.go              # Board interface + constants/enums (StoneStatus, GameStatus, etc.)
+  gomoku/
+    chesstype.go              # SingleType, ChessType (pattern classification types)
+    point.go                  # Point struct (neighbor indices, types, scores)
+    typetree.go               # Shared TypeNode, Classify, CutSameResultChild
+    evaluator.go              # Evaluator interface, EvaluateRelativeScore (shared logic)
+    board.go                  # GomokuBoard (play/undo/scoring, implements board.Board)
+  freestyle/
+    typetree.go               # Freestyle DFS tree build + typeAnalyze (statusLen=8)
+    evaluator.go              # Freestyle scoring table + combo bonuses
+    board.go                  # NewBoard() factory
+  renju/
+    typetree.go               # Renju DFS tree build + typeAnalyze (statusLen=10, overline/forbidden)
+    evaluator.go              # Renju scoring + forbidden move detection
+    board.go                  # NewBoard() factory
+  opening/
+    openingtree.go            # Opening book trie (go:embed opening.txt, 8 orientations)
+    opening.txt               # Opening data file (copied from C++)
+  mcts/
+    node.go                   # Node struct (linked list children, UCB, Selection, Merge/Minus)
+    tree.go                   # GameTree (MCTS loop, simulation, backprop, multi-goroutine, tree JSON)
+  ai/
+    ai.go                     # AI controller (3 levels, background thinking, context cancellation)
+  server/
+    server.go                 # HTTP server (net/http, session management, static file serving)
+static/
+  index.html                  # Web frontend (copied from C++ project as-is)
+  gomoku_src/                 # CSS/JS/PNG resources
 ```
 
-## Implementation Phases (Dependency Order)
-
-| Phase | Content | Depends On |
-|-------|---------|------------|
-| 1 | Constants & core types (`StoneStatus`, `GameStatus`, `SingleType`, `ChessType`) | None |
-| 2 | Board interface | Phase 1 |
-| 3 | Type trees (pattern recognition) — DFS tree build + `typeAnalyze` recursion. Freestyle (statusLen=8) and Renju (statusLen=10) | Phase 1 |
-| 4 | Evaluators — scoring tables, combo detection, forbidden move check. Define `Evaluator` interface | Phases 1, 3 |
-| 5 | Opening book — parse `opening.txt`, insert in 8 orientations | Phase 1 |
-| 6 | GomokuBoard — neighbor index init, play/undo, score update | Phases 2, 4, 5 |
-| 7 | MCTS engine — Node + GameTree, UCB selection, simulation, backprop, multi-goroutine parallel search + tree merge | Phase 6 |
-| 8 | AI controller — 3 levels, background thinking, `context.Context` cancellation | Phase 7 |
-| 9 | HTTP server — `net/http`, `sync.RWMutex` session map, static file serving | Phase 8 |
-| 10 | CLI mode — terminal interactive, lower priority | Phase 8 |
-
 ## Excluded from Refactoring
-
-These modules from the C++ project are NOT being ported:
 
 | Module | Reason |
 |--------|--------|
 | `neuralnetwork/` | Experimental CNN/ResCNN, never integrated into engine |
 | `go/` | Abandoned Go (board game) implementation |
-| `test/` | Manual test harness with no assertions — replaced by Go tests |
-| `proc_stat.c/.h` | Linux-specific `/proc` parsing — Go has `runtime` and `pprof` |
-| `dashboard.html` | Depends on `proc_stat` — replace with `pprof` endpoints |
-| `objectcounter.cpp/.h` | C++ debug utility — Go has race detector and heap profiling |
+| `test/` | Manual test harness — replaced by Go tests |
+| `proc_stat.c/.h` | Linux-specific `/proc` parsing — Go has `runtime.MemStats` |
+| `dashboard.html` | Depends on `proc_stat` — `/usage` endpoint provides basic data instead |
+| `objectcounter.cpp/.h` | C++ debug utility — Go has race detector and pprof |
 | `log.cpp/.h` | Trivial logger — Go has `log/slog` |
 | `makefile.py` / `Makefile` | Build scripts — Go uses `go build` |
 | `lib/json.h` | Third-party JSON — Go has `encoding/json` |
 | `compare/` | Python AI comparison framework — can reimplement later via CLI |
 
-The web frontend (`index.html`, `gomoku/src/`) is copied as-is — it communicates via HTTP/JSON.
+## Bugs Fixed from C++ Original
 
-## Performance Optimization Strategy
+| Bug | C++ Location | Description |
+|-----|-------------|-------------|
+| Assignment vs comparison | `evaluatorrenjubasic.cpp:118` | `if (selfColor = BLACK)` used `=` instead of `==`. Always entered else branch, corrupting both passes of the scoring loop. Go implements correct asymmetric logic: black gets defense bonus for opponent's double-live-3, white subtracts inflated score (because black's double-live-3 is a forbidden move). |
+| Non-atomic thread control | `gametree.cpp:112`, `ai.cpp:64` | `bool*` shared between main thread and search threads without atomic or memory barrier — undefined behavior in C++. Go uses `context.Context`. |
+| Thread-unsafe PRNG | `virtualboardgomoku.h:192` | Global `rand()` called from multiple MCTS threads simultaneously. Go uses `math/rand/v2` per-goroutine PRNG. |
+| Score table out-of-bounds | `evaluatorrenjubasic.cpp` | `typeAnalyze` can produce `level < 0` (formula: `level - (3 - (length-1))`), used as array index without bounds check. Go adds guard: `if length < 0 \|\| length > 5 \|\| level < 0 \|\| level > 3 { continue }`. |
+| Session map data race | `server/httpserver.h:72` | `session2instance_` unordered_map accessed from multiple request handlers without locking. Go uses `sync.Mutex`. |
 
-### 1. Memory Pool (Slab Allocator)
+## Performance Design Decisions
 
-C++ uses a free-list pool pre-allocating 800,000 nodes in contiguous memory.
+### Preserved from C++
+- **Node linked list children**: 16 bytes/node vs sparse array's 1800 bytes/node. Hot path iterates sequentially; random access only on cold paths.
+- **Type tree trie lookup**: Built once via `sync.Once`, then read-only. `CutSameResultChild` pruning preserved.
+- **UCB + score/scoreSum selection**: Formula identical: `winRate + sqrt(0.5 * ln(parentCount) / (1 + childCount))`.
+- **Tree copy-minus-merge parallel search**: Same pattern as C++ but with goroutines + context instead of threads + bool*.
+- **Greedy simulation**: `GetHSI()` picks highest-score point, MAX_DEPTH=50.
+- **Relative score filtering**: `score * 8 <= highest` and `playNo < 10 && score < 140` thresholds identical.
+- **Opening book**: 8-orientation trie with rotate/mirror, boundary check (4-10), random selection among matches.
 
-Go strategy: Pre-allocate `[]Node` slice as slab allocator with free-list index management.
-- `allocate()` → O(1), return next free index
-- `deallocate()` → O(1), push index to free list head
-- Optionally disable GC during search with `debug.SetGCPercent(-1)` and re-enable after
-
-### 2. Neighbor Status Access (Index Array)
-
-C++ stores raw pointers (`const StoneStatus*`) to neighbor points' `status_` fields for O(1) lookup.
-
-Go strategy: Store neighbor indices as `[4][10]int16` per Point. Read neighbors via:
-```go
-func (b *Board) getDirStatus(p, dir int, buf []StoneStatus) {
-    for i := 0; i < b.statusLen; i++ {
-        idx := b.points[p].DirIdx[dir][i]
-        if idx < 0 { buf[i] = Bound } else { buf[i] = b.points[idx].Status }
-    }
-}
-```
-Expected overhead: ~5-15% vs raw pointers. Go compiler's bounds check elimination helps.
-
-### 3. Template Polymorphism → Interface
-
-C++ uses `template <class Eva>` for compile-time evaluator injection (fully inlined).
-
-Go strategy: Use `Evaluator` interface initially. The hot path (`evaluateType` + `evaluateScore`) is called ~2000 times per simulation. Interface dispatch cost (~2-5ns/call) is negligible relative to total search time. If profiling shows it matters, switch to concrete types or generics.
-
-### 4. Node Children: Linked List (Preserve C++ Design)
-
-C++ uses singly-linked list (`child_`, `next_` pointers) for Node children.
-
-**Keep this design in Go.** Rationale:
-- Linked list: 2 pointers = 16 bytes/node. 800K nodes = 12.8 MB
-- Sparse array `[225]*Node`: 1800 bytes/node. 800K nodes = 1.44 GB — unacceptable
-- Hot path (MCTS selection) iterates all children sequentially
-- `child(index)` random access only on cold paths (play, merge after search)
-
-### 5. Multi-threaded MCTS → Goroutines
-
-C++ uses `std::thread` + `bool*` controller (has data race on the bool flag).
-
-Go strategy: `goroutine` + `context.Context` for cancellation.
-- Goroutine startup cost is 1-2 orders of magnitude lower than `std::thread`
-- `context.Context` is race-free (unlike the C++ `bool*` which lacks atomic)
-- Tree-copy-then-merge pattern stays the same
-
-### 6. Type Tree (Trie Lookup) — No Change Needed
-
-Trie-based pattern classification works identically in Go. Pointer dereference per trie step is the same cost. Tree is built once at init via `sync.Once`, then read-only.
-
-### 7. Random Number Generation
-
-C++ uses `rand()` (global, not thread-safe — data race bug).
-
-Go strategy: `math/rand/v2` top-level functions are per-goroutine (per-P) in Go 1.22+. No locking, no manual `*rand.Rand` management needed.
-
-## Known C++ Bugs to Fix During Refactoring
-
-1. **Renju evaluator** (`evaluatorrenjubasic.cpp:118`): `if (selfColor = BLACK)` uses assignment `=` instead of comparison `==`. Investigate and fix.
-2. **`bool*` controller**: Non-atomic shared bool between threads — undefined behavior in C++. Fixed by using `context.Context` in Go.
-3. **`rand()` in multi-threaded simulation**: Global `rand()` is not thread-safe. Fixed by Go's per-P PRNG.
-4. **HTTP server session map**: Accessed without locks in multi-request scenarios. Fixed by `sync.RWMutex` in Go.
-
-## Testing Strategy
-
-- Every package has unit tests, table-driven
-- Type tree: Cross-validate against C++ by extracting all (status → ChessType) mappings
-- Evaluator: Known type combinations → verify scores
-- Board play/undo: Roundtrip tests ensuring state fully restored
-- MCTS: Single cycle verifying selection → simulation → backprop correctness
-- Server: `httptest.Server` for full game integration tests
-- All tests run with `-race`
-- Benchmarks: TypeTree classify, Board play, MCTS sims/sec — compare against C++
+### Changed from C++
+- **Memory pool → GC**: C++ pre-allocates 800K nodes in free-list pool. Go uses standard allocator + GC. Can add slab allocator later if profiling shows GC pressure.
+- **Raw pointers → index array**: C++ stores `const StoneStatus*` to neighbor fields. Go stores `[4][10]int16` indices with -1 sentinel. ~5-15% overhead from bounds checking, but clone is a simple value copy (no pointer rewiring).
+- **Template inlining → interface dispatch**: C++ `template <class Eva>` fully inlined at compile time. Go uses `Evaluator` interface (~2-5ns/call, <1% of total search time).
+- **std::thread → goroutine**: ~2KB stack vs ~1MB, faster startup. `context.Context` for race-free cancellation.
+- **Global rand() → per-P PRNG**: `math/rand/v2` is thread-safe with zero contention.
+- **Board clone**: C++ manually rewires 225×4×10 neighbor pointers. Go does `clone.Points = b.Points` (value copy, indices remain valid).
 
 ## C++ Source Reference
-
-Key files in the original C++ project (`/Users/todd/EarthMover`):
 
 | Go Package | C++ Source |
 |------------|-----------|
 | `internal/board/` | `const.h`, `virtualboard.h` |
 | `internal/gomoku/` | `gomoku/virtualboardgomoku.h`, `gomoku/point.h`, `gomoku/chesstype.h` |
-| `internal/freestyle/` | `gomoku/freestyle/typetreefreestyle.cpp`, `gomoku/freestyle/evaluatorfreestyle.cpp` |
-| `internal/renju/` | `gomoku/renju_basic/typetreerenjubasic.cpp`, `gomoku/renju_basic/evaluatorrenjubasic.cpp` |
+| `internal/freestyle/` | `gomoku/freestyle/typetreefreestyle.{h,cpp}`, `gomoku/freestyle/evaluatorfreestyle.{h,cpp}`, `gomoku/freestyle/virtualboardfreestyle.{h,cpp}` |
+| `internal/renju/` | `gomoku/renju_basic/typetreerenjubasic.{h,cpp}`, `gomoku/renju_basic/evaluatorrenjubasic.{h,cpp}`, `gomoku/renju_basic/virtualboardrenjubasic.{h,cpp}` |
 | `internal/opening/` | `gomoku/openingtree.h`, `gomoku/opening.txt` |
-| `internal/mcts/` | `gametree.h`, `gametree.cpp`, `node.h`, `node.cpp`, `memorypool.h`, `memorypool.cpp` |
-| `internal/ai/` | `ai.h`, `ai.cpp` |
-| `internal/server/` | `server/httpserver.h`, `server/httpserver.cpp`, `server/httprequest.cpp`, `server/httpresponse.cpp` |
+| `internal/mcts/` | `gametree.{h,cpp}`, `node.{h,cpp}`, `memorypool.{h,cpp}` |
+| `internal/ai/` | `ai.{h,cpp}` |
+| `internal/server/` | `server/httpserver.{h,cpp}`, `server/httprequest.{h,cpp}`, `server/httpresponse.{h,cpp}` |
+| `cmd/earthmover/` | `networkmain.cpp` |
+| `cmd/cli/` | `main.cpp`, `gomoku/displayboard.{h,cpp}` |
