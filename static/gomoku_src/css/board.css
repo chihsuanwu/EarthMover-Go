@@ -27,9 +27,6 @@
 
 #background {
   background: linear-gradient(to bottom right, white, gray, white, gray, white);
-  background: -moz-linear-gradient(bottom right, white, gray, white, gray, white);
-  background: -o-linear-gradient(bottom right, white, gray, white, gray, white);
-  background: -webkit-linear-gradient(left top, white, gray, white, gray, white);
   display: inline-block;
   left: 50%;
   position: absolute;

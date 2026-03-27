@@ -1,99 +1,81 @@
-var Dialog = function() {
-  this.dialog = $('#dialog-new-game');
+class Dialog {
+  constructor() {
+    this.dialog = document.getElementById('dialog-new-game');
 
-  $('#dl-ok').click(this.ok.bind(this));
-  $('#dl-cancel').click(this.toggle.bind(this));
-  $('#new-game').click(this.toggle.bind(this));
-};
+    document.getElementById('dl-ok').addEventListener('click', () => this.ok());
+    document.getElementById('dl-cancel').addEventListener('click', () => this.toggle());
+    document.getElementById('new-game').addEventListener('click', () => this.toggle());
+  }
 
-Dialog.prototype.ok = function() {
-  // get the black/white player's radio buttons' result
-  var black = $('input[name="black"]:checked').val(),
-      white = $('input[name="white"]:checked').val();
+  ok() {
+    const black = document.querySelector('input[name="black"]:checked').value;
+    const white = document.querySelector('input[name="white"]:checked').value;
 
-  if ($('#dl-name-black').val().trim() == '')
-    $('#dl-name-black').val('you');
-  if ($('#dl-name-white').val().trim() == '')
-    $('#dl-name-white').val('you');
+    const nameBlack = document.getElementById('dl-name-black');
+    const nameWhite = document.getElementById('dl-name-white');
+    if (nameBlack.value.trim() === '') nameBlack.value = 'you';
+    if (nameWhite.value.trim() === '') nameWhite.value = 'you';
 
-  player = {'black': black, 'white': white};
+    player = { black, white };
 
-  var rule = parseInt($('input[name="rule"]:checked').val(), 10), level = parseInt($('#dl-select').val(), 10);
+    const rule = parseInt(document.querySelector('input[name="rule"]:checked').value, 10);
+    const level = parseInt(document.getElementById('dl-select').value, 10);
 
-  post({rule: rule, level: level}, 'start').catch(function onError(err) {
-    alert('start failed');
-    throw err;
-
-  }).then(function onSuccess() {
-
-    // deside player's place
-    if (black == 'human') {
-      // black == human, white == human -> sel: black, human, opp: white, human
-      // black == human, white == ai -> sel: black, human, opp: white, ai
-      this.initPlayer('sel', 'black', true);
-      this.initPlayer('opp', 'white', (white == 'human'));
-    } else {
-      if (white == 'human') {
-        // black == ai, white == human -> sel: white, human, opp: black, ai
-        this.initPlayer('sel', 'white', true);
-        this.initPlayer('opp', 'black', false);
+    post({ rule, level }, 'start').catch(err => {
+      alert('start failed');
+      throw err;
+    }).then(() => {
+      if (black === 'human') {
+        this.initPlayer('sel', 'black', true);
+        this.initPlayer('opp', 'white', white === 'human');
       } else {
-        // black == ai, white == ai -> sel: black, ai, opp: white, ai
-        this.initPlayer('sel', 'black', false);
-        this.initPlayer('opp', 'white', false);
+        if (white === 'human') {
+          this.initPlayer('sel', 'white', true);
+          this.initPlayer('opp', 'black', false);
+        } else {
+          this.initPlayer('sel', 'black', false);
+          this.initPlayer('opp', 'white', false);
+        }
       }
-    }
 
-    // initialize board
-    board.init();
+      board.init();
 
-    // initialize timer
-    if (timer.black != null) timer.black.stop();
-    if (timer.white != null) timer.white.stop();
-    timer = {black: new Timer($('.black .pi-timer')), white: new Timer($('.white .pi-timer'))};
+      if (timer.black != null) timer.black.stop();
+      if (timer.white != null) timer.white.stop();
+      timer = {
+        black: new Timer(document.querySelector('.black .pi-timer')),
+        white: new Timer(document.querySelector('.white .pi-timer'))
+      };
 
-    $('.control input').prop('disabled', true);
+      setDisabled('.control input', true);
+      setDisabled('.ctrl-replay input', true);
 
-    // Disable replay bar
-    $('.ctrl-replay input').prop('disabled', true);
+      this.toggle();
 
-    this.toggle();
+      game.rule = rule;
+      game.earthmover.level = level;
+      game.black = black;
+      game.white = white;
+      game.startTime = Date.now();
 
-    // populate 'game' variable
-    game.rule = rule;
-    game.earthmover.level = level;
-    game.black = black;
-    game.white = white;
-    game.startTime = firebase.database.ServerValue.TIMESTAMP;
+      checkNextPlayer();
+    });
+  }
 
-    var databaseRef = firebase.database().ref().push();
-    gameID = databaseRef.key;
-    databaseRef.set(game);    
+  initPlayer(playerPos, color, human) {
+    const oppColor = color === 'black' ? 'white' : 'black';
+    const el = document.querySelector(`.player-information.${playerPos}`);
+    el.classList.remove(oppColor);
+    el.classList.add(color);
 
-    checkNextPlayer();
+    document.getElementById(`pi-chess-${playerPos}`).src = `gomoku/src/png/chess_${color}.png`;
+    document.getElementById(`pi-icon-${playerPos}`).src = `gomoku/src/png/${human ? 'human' : 'icon'}.png`;
+    document.getElementById(`pi-name-${playerPos}`).textContent =
+      human ? document.getElementById(`dl-name-${color}`).value : 'EarthMover';
+  }
 
-  }.bind(this));
-
-};
-
-// initialize player
-// NOTE: player should be 'sel' or 'opp', color should be 'black' or 'white'
-// human is bool
-Dialog.prototype.initPlayer = function(player, color, human) {
-  var oppColor = (color == 'black' ? 'white' : 'black');
-
-  // set color
-  $('.player-information.' + player).removeClass(oppColor);
-  $('.player-information.' + player).addClass(color);
-
-  // set chess
-  $('#pi-chess-' + player).attr('src', 'gomoku/src/png/chess_' + color + '.png');
-  $('#pi-icon-' + player).attr('src', 'gomoku/src/png/' + (human ? 'human' : 'icon') + '.png');
-
-  // set name
-  $('#pi-name-' + player).html((human ? $('#dl-name-' + color).val() : 'EarthMover'));
+  toggle() {
+    const current = this.dialog.style.display;
+    this.dialog.style.display = (current === 'none' || current === '') ? 'block' : 'none';
+  }
 }
-
-Dialog.prototype.toggle = function() {
-  this.dialog.toggle();
-};

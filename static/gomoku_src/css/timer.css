@@ -36,75 +36,21 @@
 }
 
 .top-ani {
-  -webkit-animation: fliptop 400ms ease-in-out;
-  -moz-animation: fliptop 400ms ease-in-out;
-  animation: fliptop 400ms ease-in-out;
-  -webkit-animation-fill-mode: forwards;
-  -moz-animation-fill-mode: forwards;
-  animation-fill-mode: forwards;
+  animation: fliptop 400ms ease-in-out forwards;
 }
 
 .back-ani {
-  -webkit-animation: flipback 400ms ease-in-out;
-  -moz-animation: flipback 400ms ease-in-out;
-  animation: flipback 400ms ease-in-out;
-  -webkit-animation-fill-mode: forwards;
-  -moz-animation-fill-mode: forwards;
-  animation-fill-mode: forwards;
-}
-
-@-webkit-keyframes fliptop {
-  from {
-    -webkit-transform: rotateX(0deg);
-  }
-  to {
-    -webkit-transform: rotateX(180deg);
-  }
-}
-
-@-moz-keyframes fliptop {
-  from {
-    -moz-transform: rotateX(0deg);
-  }
-  to {
-    -moz-transform: rotateX(180deg);
-  }
+  animation: flipback 400ms ease-in-out forwards;
 }
 
 @keyframes fliptop {
-  from {
-    transform: rotateX(0deg);
-  }
-  to {
-    transform: rotateX(180deg);
-  }
-}
-
-@-webkit-keyframes flipback {
-  from {
-    -webkit-transform: rotateX(180deg);
-  }
-  to {
-    -webkit-transform: rotateX(0deg);
-  }
-}
-
-@-moz-keyframes flipback {
-  from {
-    -moz-transform: rotateX(180deg);
-  }
-  to {
-    -moz-transform: rotateX(0deg);
-  }
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(180deg); }
 }
 
 @keyframes flipback {
-  from {
-    transform: rotateX(180deg);
-  }
-  to {
-    transform: rotateX(0deg);
-  }
+  from { transform: rotateX(180deg); }
+  to { transform: rotateX(0deg); }
 }
 
 @media screen and (orientation: landscape) {

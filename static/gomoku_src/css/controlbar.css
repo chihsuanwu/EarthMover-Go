@@ -22,7 +22,6 @@
 }
 
 .control input:disabled {
-  -webkit-filter: opacity(20%);
   filter: opacity(20%);
 }
 

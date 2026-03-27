@@ -1,8 +1,5 @@
 .tool {
   background: linear-gradient(to bottom, #7df, #bef);
-  background: -moz-linear-gradient(bottom, #7df, #bef);
-  background: -o-linear-gradient(bottom, #7df, #bef);
-  background: -webkit-linear-gradient(top, #7df, #bef);
   height: 6vh;
   position: relative;
   z-index: 10;
@@ -19,9 +16,6 @@
 }
 
 .tl-sub {
-  -webkit-transition: height .2s;
-  -moz-transition: height .2s;
-  -o-transition: height .2s;
   transition: height .2s;
   background-color: #def;
   height: 0;
@@ -33,7 +27,6 @@
 }
 
 .tl-check {
-  display: none;
   height: 100%;
   position: absolute;
   right: 0;
@@ -69,7 +62,7 @@
 }
 
 .tl-title:hover .tl-sub.game {
-  height: 10.6vh;
+  height: 5.4vh;
 }
 
 .tl-title:hover .tl-sub.view {
@@ -109,16 +102,10 @@
 
 .tl-item:hover::before {
   background: linear-gradient(to bottom, #ffe, #ffa);
-  background: -moz-linear-gradient(bottom, #ffe, #ffa);
-  background: -o-linear-gradient(bottom, #ffe, #ffa);
-  background: -webkit-linear-gradient(top, #ffe, #ffa);
   top: 0;
 }
 
 .tl-item:hover::after {
   bottom: 0;
   background: linear-gradient(to bottom, #fd6, #fe9);
-  background: -moz-linear-gradient(bottom, #fd6, #fe9);
-  background: -o-linear-gradient(bottom, #fd6, #fe9);
-  background: -webkit-linear-gradient(top, #fd6, #fe9);
 }
