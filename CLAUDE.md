@@ -13,6 +13,10 @@ go run ./cmd/cli/
 # HTTP server (open browser at http://localhost:8080)
 go run ./cmd/earthmover/ 8080
 
+# WebAssembly (no backend needed — runs entirely in browser)
+./build_wasm.sh
+cd static && python3 -m http.server 8080
+
 # Run all tests
 go test ./...
 
@@ -26,6 +30,7 @@ go test -race ./...
 cmd/
   earthmover/main.go         # HTTP server entry point
   cli/main.go                # Terminal interactive mode
+  wasm/main.go               # WebAssembly entry point (syscall/js bridge)
 internal/
   board/board.go              # Board interface + constants/enums (StoneStatus, GameStatus, etc.)
   gomoku/
@@ -52,9 +57,11 @@ internal/
     ai.go                     # AI controller (3 levels, background thinking, context cancellation)
   server/
     server.go                 # HTTP server (net/http, session management, static file serving)
+build_wasm.sh                   # Build script for WASM target
 static/
-  index.html                  # Web frontend (copied from C++ project as-is)
-  gomoku_src/                 # CSS/JS/PNG resources
+  index.html                  # Web frontend
+  gomoku/src/                 # CSS/JS/PNG resources
+  gomoku/src/js/worker.js     # Web Worker that loads WASM and bridges AI calls
 ```
 
 ## Excluded from Refactoring

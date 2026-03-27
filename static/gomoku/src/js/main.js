@@ -11,7 +11,52 @@ const board = new Board();
 
 const dialog = new Dialog();
 
-const sessionManager = new SessionManager();
+// --- WASM Worker bridge ---
+
+const worker = new Worker('gomoku/src/js/worker.js');
+
+let wasmReady = false;
+const wasmReadyPromise = new Promise(resolve => {
+  worker.addEventListener('message', function onReady(e) {
+    if (e.data.type === 'ready') {
+      wasmReady = true;
+      worker.removeEventListener('message', onReady);
+      resolve();
+    }
+  });
+});
+
+let nextCallId = 0;
+const pendingCalls = new Map();
+
+worker.addEventListener('message', (e) => {
+  const { id, result, error } = e.data;
+  if (id === undefined) return; // 'ready' message etc.
+  const pending = pendingCalls.get(id);
+  if (!pending) return;
+  pendingCalls.delete(id);
+  if (error) {
+    pending.reject(new Error(error));
+  } else {
+    pending.resolve(result);
+  }
+});
+
+function callWasm(action, params) {
+  const id = nextCallId++;
+  return new Promise((resolve, reject) => {
+    pendingCalls.set(id, { resolve, reject });
+    worker.postMessage({ id, action, params });
+  });
+}
+
+// Compatibility wrapper: replaces the old HTTP post() function.
+async function post(params, path) {
+  // Map old HTTP paths to WASM worker actions.
+  const action = path.replace(/^\//, '');
+  await wasmReadyPromise;
+  return callWasm(action, params || {});
+}
 
 // --- Helpers ---
 
@@ -26,21 +71,6 @@ function notifyWinner(winnerColor) {
   setDisabled('.ctrl-replay input', false);
   setDisabled('.ctrl-game input', true);
   setDisabled('.ctrl-analyze input', true);
-}
-
-async function post(params, path) {
-  params = params || {};
-  params.sessionId = sessionManager.getSessionID();
-
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-
-  if (res.status === 204) return;
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
 }
 
 // Handles the next round of game.
@@ -166,52 +196,6 @@ function analyzeClick() {
   }
 }
 
-function SessionManager() {
-  let sessionID;
-
-  function getSessionID() {
-    return sessionID || generateSessionID();
-  }
-
-  function generateSessionID() {
-    const charset = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    sessionID = '';
-    for (let i = 0; i < 10; ++i)
-      sessionID += charset.charAt(Math.floor(Math.random() * charset.length));
-    return sessionID;
-  }
-
-  return { getSessionID };
-}
-
 function refresh() {
   D3.requestTree();
 }
-
-// Keep alive when game is in progress.
-function keepAlive(prevResponse) {
-  if (board.gameStarted) {
-    post(null, 'keepAlive').then(() => {
-      setTimeout(keepAlive, 15000, true);
-    }).catch(() => {
-      if (prevResponse) {
-        alert(
-          'Sorry, there are some issues with your game.\n' +
-          '1. Check your internet connection.\n' +
-          '2. Your game may be terminated by the server due to long period of inactivity.'
-        );
-      }
-      setTimeout(keepAlive, 15000, false);
-    });
-  }
-}
-
-setTimeout(keepAlive, 15000, true);
-
-// Quit game when user leaves.
-window.addEventListener('unload', () => post(null, '/quit'));
-
-window.addEventListener('beforeunload', (e) => {
-  e.preventDefault();
-  e.returnValue = '';
-});

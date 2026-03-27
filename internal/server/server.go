@@ -380,9 +380,8 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		allowed = true
 	}
 	if len(path) > len("/gomoku/src/") && path[:len("/gomoku/src/")] == "/gomoku/src/" {
-		// Map /gomoku/src/* to static/gomoku_src/*
 		if !containsDotDot(path) {
-			filePath := s.staticDir + "/gomoku_src" + path[len("/gomoku/src"):]
+			filePath := s.staticDir + path
 			http.ServeFile(w, r, filePath)
 			return
 		}

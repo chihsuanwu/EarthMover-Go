@@ -3,6 +3,10 @@
 /earthmover
 *.exe
 
+# WASM build artifacts
+static/earthmover.wasm
+static/wasm_exec.js
+
 # IDE
 .idea/
 .vscode/

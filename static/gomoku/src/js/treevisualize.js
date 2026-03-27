@@ -2,7 +2,7 @@ const D3 = {};
 
 D3.requestTree = async function() {
   try {
-    const response = await post(null, '/visualize');
+    const response = await post(null, 'visualize');
     if (response) D3.drawTree(response);
   } catch (e) {
     // visualization request failed, ignore
