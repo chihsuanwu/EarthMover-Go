@@ -1,0 +1,124 @@
+.tool {
+  background: linear-gradient(to bottom, #7df, #bef);
+  background: -moz-linear-gradient(bottom, #7df, #bef);
+  background: -o-linear-gradient(bottom, #7df, #bef);
+  background: -webkit-linear-gradient(top, #7df, #bef);
+  height: 6vh;
+  position: relative;
+  z-index: 10;
+}
+
+.tl-title {
+  height: 6vh;
+  position: absolute;
+  width: 15vh;
+  color: #206;
+  font-size: 3.2vh;
+  text-align: center;
+  line-height: 6vh;
+}
+
+.tl-sub {
+  -webkit-transition: height .2s;
+  -moz-transition: height .2s;
+  -o-transition: height .2s;
+  transition: height .2s;
+  background-color: #def;
+  height: 0;
+  top: 6vh;
+  overflow: hidden;
+  position: absolute;
+  text-align: left;
+  z-index: -1;
+}
+
+.tl-check {
+  display: none;
+  height: 100%;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.tl-title.game {
+  left: 1vh;
+}
+
+.tl-title.view {
+  left: 16vh;
+}
+
+.tl-title.analyze {
+  left: 31vh;
+}
+
+.tl-sub.game {
+  width: 20vh;
+}
+
+.tl-sub.view {
+  width: 24vh;
+}
+
+.tl-sub.analyze {
+  width: 24vh;
+}
+
+.tl-title:hover {
+  background-color: rgba(20, 0, 60, .1);
+}
+
+.tl-title:hover .tl-sub.game {
+  height: 10.6vh;
+}
+
+.tl-title:hover .tl-sub.view {
+  height: 10.6vh;
+}
+
+.tl-title:hover .tl-sub.analyze {
+  height: 5.4vh;
+}
+
+.tl-item {
+  border-color: transparent;
+  border-style: outset;
+  border-width: .1vh;
+  font-size: 3vh;
+  height: 5vh;
+  line-height: 5vh;
+  list-style-type: none;
+  margin: .2vh;
+  padding-left: 1vh;
+  position: relative;
+}
+
+.tl-item:hover {
+  border-color: #aaa;
+}
+
+.tl-item:hover::before,
+.tl-item:hover::after {
+  content: "";
+  height: 50%;
+  left: 0;
+  position: absolute;
+  width: 100%;
+  z-index: -1;
+}
+
+.tl-item:hover::before {
+  background: linear-gradient(to bottom, #ffe, #ffa);
+  background: -moz-linear-gradient(bottom, #ffe, #ffa);
+  background: -o-linear-gradient(bottom, #ffe, #ffa);
+  background: -webkit-linear-gradient(top, #ffe, #ffa);
+  top: 0;
+}
+
+.tl-item:hover::after {
+  bottom: 0;
+  background: linear-gradient(to bottom, #fd6, #fe9);
+  background: -moz-linear-gradient(bottom, #fd6, #fe9);
+  background: -o-linear-gradient(bottom, #fd6, #fe9);
+  background: -webkit-linear-gradient(top, #fd6, #fe9);
+}

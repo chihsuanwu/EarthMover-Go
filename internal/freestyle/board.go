@@ -1,0 +1,16 @@
+package freestyle
+
+import (
+	"github.com/todd/earthmover/internal/board"
+	"github.com/todd/earthmover/internal/gomoku"
+	"github.com/todd/earthmover/internal/opening"
+)
+
+func init() {
+	opening.Init()
+}
+
+// NewBoard creates a new Gomoku board with Freestyle rules.
+func NewBoard() board.Board {
+	return gomoku.NewBoard(&FreestyleEvaluator{}, statusLength)
+}

@@ -1,0 +1,12 @@
+# Binaries
+cli
+earthmover
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

@@ -1,0 +1,89 @@
+#dialog-new-game {
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  height: 100%;
+  position: absolute;
+  width: 100%;
+  z-index: 20;
+}
+
+.dl-block input {
+  margin: 0 4px;
+  -webkit-touch-callout: text;
+  -webkit-user-select: text;
+  -khtml-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+.dl-body {
+  background-color: #FFE;
+  bottom: 0;
+  height: 260px;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 300px;
+}
+
+.dl-btn-bar {
+  background-color: #EEE;
+  bottom: 0;
+  text-align: right;
+  position: absolute;
+  width: 100%;
+}
+
+.dl-block {
+  border-color: #CCC;
+  border-width: 2px;
+  border-style: solid;
+  display: inline-block;
+  position: absolute;
+}
+
+.dl-block.rule {
+  height: 56px;
+  left: 8px;
+  padding: 4px;
+  top: 12px;
+  width: 284px;
+}
+
+.dl-block.player-black, .dl-block.player-white {
+  height: 96px;
+  padding: 4px;
+  top: 80px;
+  width: 138px;
+}
+
+.dl-block.player-black {
+  left: 8px;
+}
+
+.dl-block.player-white {
+  right: 8px;
+}
+
+.dl-block.level {
+  height: 40px;
+  left: 8px;
+  line-height: 40px;
+  text-align: center;
+  top: 188px;
+  width: 284px;
+}
+
+.dl-name {
+  left: 16px;
+  position: relative;
+  width: 100px;
+}
+
+.dl-btn {
+  margin: 2px;
+  padding: 0 4px;
+}
