@@ -1,14 +1,17 @@
 // Web Worker that loads the Go WASM binary and exposes AI functions.
 // The main thread communicates via postMessage to avoid UI freezing.
 
-importScripts('/wasm_exec.js');
+// Derive base URL from worker's own location (e.g. /EarthMover-Go/gomoku/src/js/worker.js → /EarthMover-Go/)
+const baseURL = self.location.href.replace(/gomoku\/src\/js\/worker\.js$/, '');
+
+importScripts(baseURL + 'wasm_exec.js');
 
 const go = new Go();
 
 let ready = false;
 const pending = [];
 
-WebAssembly.instantiateStreaming(fetch('/earthmover.wasm'), go.importObject).then(result => {
+WebAssembly.instantiateStreaming(fetch(baseURL + 'earthmover.wasm'), go.importObject).then(result => {
   go.run(result.instance);
   ready = true;
   // Process any messages that arrived before WASM was ready.
