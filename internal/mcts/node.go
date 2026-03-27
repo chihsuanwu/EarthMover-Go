@@ -125,7 +125,7 @@ func (n *Node) Selection(brd board.Board) (board.SearchStatus, *Node) {
 	childWinning := false
 	scoreSum := float64(brd.GetScoreSum())
 
-	checked := make([]bool, brd.Length())
+	var checked [board.Length]bool
 	var bestNode *Node
 
 	// Evaluate existing children
@@ -152,7 +152,7 @@ func (n *Node) Selection(brd board.Board) (board.SearchStatus, *Node) {
 	}
 
 	// Check unexplored moves
-	uncheckIdx := brd.GetHSIFiltered(checked)
+	uncheckIdx := brd.GetHSIFiltered(checked[:])
 	if uncheckIdx != -1 {
 		val := float64(brd.GetScore(uncheckIdx))/scoreSum + n.UCBValue(nil)
 		if val > maxVal {

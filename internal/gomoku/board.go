@@ -2,10 +2,16 @@ package gomoku
 
 import (
 	"math/rand/v2"
+	"sync"
 
 	"github.com/todd/earthmover/internal/board"
 	"github.com/todd/earthmover/internal/opening"
 )
+
+// boardPool reuses GomokuBoard allocations to reduce GC pressure during MCTS.
+var boardPool = sync.Pool{
+	New: func() any { return &GomokuBoard{} },
+}
 
 // Directions: 0=→ 1=↓ 2=↗ 3=↘
 var dir = [4][2]int{{0, 1}, {1, 0}, {-1, 1}, {1, 1}}
@@ -255,19 +261,20 @@ func (b *GomokuBoard) Length() int {
 }
 
 func (b *GomokuBoard) Clone() board.Board {
-	clone := &GomokuBoard{
-		PlayNo:    b.PlayNo,
-		StatusLen: b.StatusLen,
-		Eval:      b.Eval,
-	}
-
-	// Copy points (value types, no pointer sharing)
+	clone := boardPool.Get().(*GomokuBoard)
+	clone.PlayNo = b.PlayNo
+	clone.StatusLen = b.StatusLen
+	clone.Eval = b.Eval
 	clone.Points = b.Points
-
-	// Re-wire neighbor indices (they index into clone.Points, same layout)
-	// Since DirIdx stores indices (not pointers), no rewiring needed.
-
 	return clone
+}
+
+// Release returns a cloned board to the pool for reuse.
+// Call this when a cloned board is no longer needed (e.g., after MCTS simulation).
+func Release(b board.Board) {
+	if gb, ok := b.(*GomokuBoard); ok {
+		boardPool.Put(gb)
+	}
 }
 
 func (b *GomokuBoard) Create() board.Board {

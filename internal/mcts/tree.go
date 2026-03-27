@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/todd/earthmover/internal/board"
+	"github.com/todd/earthmover/internal/gomoku"
 )
 
 // TreeJSON is the JSON representation of a game tree node for the frontend.
@@ -56,6 +57,7 @@ func (t *GameTree) MCTS(cycles int) bool {
 		}
 
 		t.backProp(node, status)
+		gomoku.Release(clone)
 	}
 	return true
 }
