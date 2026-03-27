@@ -14,9 +14,9 @@ import (
 
 // Level settings: [threads, batch, minCount]
 var levelConfig = [3][3]int{
-	{2, 3200, 1600}, // Level 0: Normal
-	{3, 3200, 2400}, // Level 1: Advanced
-	{4, 3200, 3200}, // Level 2: Master
+	{2, 6400, 4800},  // Level 0: Normal
+	{3, 6400, 8000},  // Level 1: Advanced
+	{4, 6400, 12800}, // Level 2: Master
 }
 
 const (
@@ -65,7 +65,8 @@ func (a *AI) Think() int {
 }
 
 // Play records an opponent's move. Returns the winner:
-//   -1 = no winner, 0 = black wins, 1 = white wins.
+//
+//	-1 = no winner, 0 = black wins, 1 = white wins.
 func (a *AI) Play(index int) int {
 	status := a.tree.Play(index)
 	if status == board.Nothing {
@@ -107,7 +108,7 @@ func (a *AI) ThinkInBackground() {
 
 	go func() {
 		defer close(a.bgDone)
-		a.tree.MCTSMultiWithContext(4, ctx)
+		a.tree.MCTSMultiWithContext(4, ctx, maxBackgroundCycle)
 	}()
 }
 

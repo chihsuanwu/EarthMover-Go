@@ -83,15 +83,25 @@ func (t *GameTree) MCTSBatch(batch, minCount int) {
 	}
 }
 
-// MCTSWithContext runs MCTS until the context is cancelled.
-func (t *GameTree) MCTSWithContext(ctx context.Context) {
+// MCTSWithContext runs MCTS until the context is cancelled or maxCycle is
+// reached. If maxCycle <= 0, there is no cycle limit.
+func (t *GameTree) MCTSWithContext(ctx context.Context, maxCycle int) {
+	total := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		if !t.MCTS(1000) {
+		batch := 1000
+		if maxCycle > 0 && total+batch > maxCycle {
+			batch = maxCycle - total
+		}
+		if !t.MCTS(batch) {
+			return
+		}
+		total += batch
+		if maxCycle > 0 && total >= maxCycle {
 			return
 		}
 	}
@@ -125,7 +135,7 @@ func (t *GameTree) MCTSMulti(threadCount, batch, minCount int) {
 		wg.Add(1)
 		go func(tree *GameTree) {
 			defer wg.Done()
-			tree.MCTSWithContext(ctx)
+			tree.MCTSWithContext(ctx, 0)
 		}(trees[i])
 	}
 
@@ -143,10 +153,11 @@ func (t *GameTree) MCTSMulti(threadCount, batch, minCount int) {
 	}
 }
 
-// MCTSMultiWithContext runs parallel MCTS until the context is cancelled.
-func (t *GameTree) MCTSMultiWithContext(threadCount int, ctx context.Context) {
+// MCTSMultiWithContext runs parallel MCTS until the context is cancelled or
+// maxCycle is reached per goroutine. If maxCycle <= 0, there is no cycle limit.
+func (t *GameTree) MCTSMultiWithContext(threadCount int, ctx context.Context, maxCycle int) {
 	if threadCount <= 1 {
-		t.MCTSWithContext(ctx)
+		t.MCTSWithContext(ctx, maxCycle)
 		return
 	}
 
@@ -166,11 +177,11 @@ func (t *GameTree) MCTSMultiWithContext(threadCount int, ctx context.Context) {
 		wg.Add(1)
 		go func(tree *GameTree) {
 			defer wg.Done()
-			tree.MCTSWithContext(ctx)
+			tree.MCTSWithContext(ctx, maxCycle)
 		}(trees[i])
 	}
 
-	t.MCTSWithContext(ctx)
+	t.MCTSWithContext(ctx, maxCycle)
 	wg.Wait()
 
 	for i := 0; i < extraCount; i++ {
