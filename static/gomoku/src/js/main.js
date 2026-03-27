@@ -14,6 +14,7 @@ const dialog = new Dialog();
 // --- WASM Worker bridge ---
 
 const worker = new Worker('gomoku/src/js/worker.js');
+worker.postMessage({ type: 'init', baseURL: document.baseURI.replace(/[^/]*$/, '') });
 
 let wasmReady = false;
 const wasmReadyPromise = new Promise(resolve => {
