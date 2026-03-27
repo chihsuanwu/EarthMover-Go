@@ -1,6 +1,6 @@
 # Binaries
-cli
-earthmover
+/cli
+/earthmover
 *.exe
 
 # IDE
