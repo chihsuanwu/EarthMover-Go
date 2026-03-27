@@ -16,6 +16,9 @@ type GomokuBoard struct {
 	PlayNo    int
 	StatusLen int // 8 for freestyle, 10 for renju
 	Eval      Evaluator
+
+	// statusBuf is a reusable buffer for getDirStatus to avoid per-call allocation.
+	statusBuf [MaxStatusLength]board.StoneStatus
 }
 
 // NewBoard creates and initializes a new GomokuBoard with the given evaluator and status length.
@@ -63,47 +66,39 @@ func (b *GomokuBoard) initNeighbors() {
 }
 
 func (b *GomokuBoard) initScores() {
-	statusBuf := make([]board.StoneStatus, b.StatusLen)
-
 	for i := 0; i < board.Length; i++ {
 		for d := 0; d < 4; d++ {
-			b.getDirStatus(i, d, statusBuf)
-			b.Points[i].Types[d] = b.Eval.EvaluateType(statusBuf)
+			b.fillDirStatus(i, d)
+			b.Points[i].Types[d] = b.Eval.EvaluateType(b.statusBuf[:b.StatusLen])
 		}
 		b.Eval.EvaluateScore(b.Points[i].Types, &b.Points[i].AbsScore)
 	}
 	b.evaluateRelativeScore()
 }
 
-// getDirStatus reads the neighbor stone statuses along a direction into buf.
-func (b *GomokuBoard) getDirStatus(pointIdx, dir int, buf []board.StoneStatus) {
+// fillDirStatus reads the neighbor stone statuses along a direction into b.statusBuf.
+func (b *GomokuBoard) fillDirStatus(pointIdx, dir int) {
 	for i := 0; i < b.StatusLen; i++ {
 		idx := b.Points[pointIdx].DirIdx[dir][i]
 		if idx < 0 {
-			buf[i] = board.Bound
+			b.statusBuf[i] = board.Bound
 		} else {
-			buf[i] = b.Points[idx].Stat
+			b.statusBuf[i] = b.Points[idx].Stat
 		}
 	}
 }
 
 func (b *GomokuBoard) evaluateRelativeScore() {
-	// Bridge Point to PointScorer interface
-	scorers := make([]PointScorer, board.Length)
-	for i := range scorers {
-		scorers[i] = &b.Points[i]
-	}
+	EvaluateRelativeScore(&b.Points, b.PlayNo, openingClassifyPoints)
+}
 
-	// Bridge to opening.PointStatus
-	openingClassify := func(pts []PointScorer) int {
-		opPts := make([]opening.PointStatus, len(pts))
-		for i := range pts {
-			opPts[i] = &b.Points[i]
-		}
-		return opening.Classify(opPts)
+// openingClassifyPoints bridges Points array to the opening book.
+func openingClassifyPoints(points *[board.Length]Point) int {
+	opPts := make([]opening.PointStatus, board.Length)
+	for i := range opPts {
+		opPts[i] = &points[i]
 	}
-
-	EvaluateRelativeScore(scorers, b.PlayNo, openingClassify)
+	return opening.Classify(opPts)
 }
 
 // --- board.Board interface implementation ---
@@ -142,10 +137,9 @@ func (b *GomokuBoard) Undo(index int) {
 	b.Points[index].Stat = board.Empty
 
 	// Re-evaluate the point itself
-	statusBuf := make([]board.StoneStatus, b.StatusLen)
 	for d := 0; d < 4; d++ {
-		b.getDirStatus(index, d, statusBuf)
-		b.Points[index].Types[d] = b.Eval.EvaluateType(statusBuf)
+		b.fillDirStatus(index, d)
+		b.Points[index].Types[d] = b.Eval.EvaluateType(b.statusBuf[:b.StatusLen])
 	}
 	b.Eval.EvaluateScore(b.Points[index].Types, &b.Points[index].AbsScore)
 
@@ -160,7 +154,6 @@ func (b *GomokuBoard) updateNeighbors(index int) {
 	row := index / board.Dimen
 	col := index % board.Dimen
 	halfLen := b.StatusLen / 2
-	statusBuf := make([]board.StoneStatus, b.StatusLen)
 
 	for d := 0; d < 4; d++ {
 		for move := -1; move <= 1; move += 2 {
@@ -185,8 +178,8 @@ func (b *GomokuBoard) updateNeighbors(index int) {
 					continue
 				}
 
-				b.getDirStatus(checkIdx, d, statusBuf)
-				b.Points[checkIdx].Types[d] = b.Eval.EvaluateType(statusBuf)
+				b.fillDirStatus(checkIdx, d)
+				b.Points[checkIdx].Types[d] = b.Eval.EvaluateType(b.statusBuf[:b.StatusLen])
 				b.Eval.EvaluateScore(b.Points[checkIdx].Types, &b.Points[checkIdx].AbsScore)
 			}
 		}

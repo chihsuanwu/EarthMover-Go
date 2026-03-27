@@ -24,28 +24,15 @@ type Evaluator interface {
 	CheckWinOrLose(score int) board.GameStatus
 }
 
-// PointScorer provides access to a point's score and absScore for evaluateRelativeScore.
-// This avoids a circular dependency with the Point struct.
-type PointScorer interface {
-	GetAbsScore(color int) int
-	SetScore(score int)
-}
-
-// OpeningClassifier is an optional function that returns a suggested move index
-// from the opening book, or -1 if no match.
-type OpeningClassifier func(points []PointScorer) int
-
 // EvaluateRelativeScore computes the relative (filtered) score for all points.
-// This is shared logic between freestyle and renju.
+// Operates directly on the Points array to avoid interface slice allocations.
 // openingClassify may be nil if the opening book is not available.
-func EvaluateRelativeScore(points []PointScorer, playNo int, openingClassify OpeningClassifier) {
-	length := len(points)
-
+func EvaluateRelativeScore(points *[board.Length]Point, playNo int, openingClassify func(*[board.Length]Point) int) {
 	if playNo == 0 {
-		for i := 0; i < length; i++ {
-			points[i].SetScore(-1)
+		for i := 0; i < board.Length; i++ {
+			points[i].Scr = -1
 		}
-		points[length/2].SetScore(1)
+		points[board.Length/2].Scr = 1
 		return
 	}
 
@@ -53,10 +40,10 @@ func EvaluateRelativeScore(points []PointScorer, playNo int, openingClassify Ope
 	if playNo <= 4 && openingClassify != nil {
 		index := openingClassify(points)
 		if index != -1 {
-			for i := 0; i < length; i++ {
-				points[i].SetScore(-1)
+			for i := 0; i < board.Length; i++ {
+				points[i].Scr = -1
 			}
-			points[index].SetScore(1)
+			points[index].Scr = 1
 			return
 		}
 	}
@@ -66,18 +53,18 @@ func EvaluateRelativeScore(points []PointScorer, playNo int, openingClassify Ope
 
 	// Find highest score for current player
 	highestScore := -1
-	for i := 0; i < length; i++ {
-		if s := points[i].GetAbsScore(whoTurn); s > highestScore {
+	for i := 0; i < board.Length; i++ {
+		if s := points[i].AbsScore[whoTurn]; s > highestScore {
 			highestScore = s
 		}
 	}
 
-	for i := 0; i < length; i++ {
-		score := points[i].GetAbsScore(whoTurn)
+	for i := 0; i < board.Length; i++ {
+		score := points[i].AbsScore[whoTurn]
 		if score*8 <= highestScore || (playNo < 10 && score < 140) {
-			points[i].SetScore(-1)
+			points[i].Scr = -1
 		} else {
-			points[i].SetScore(score)
+			points[i].Scr = score
 		}
 	}
 }
