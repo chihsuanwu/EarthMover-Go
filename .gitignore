@@ -8,5 +8,12 @@
 .vscode/
 *.swp
 
+# Profiling
+*.prof
+*.test
+
+# Claude worktrees
+.claude/
+
 # OS
 .DS_Store
